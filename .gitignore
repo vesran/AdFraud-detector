@@ -6,3 +6,4 @@ kibana/
 logstash
 elk-cec-docker
 *.class
+target/*
