@@ -1,0 +1,8 @@
+.idea
+_dev
+__pycache__
+elasticsearch
+kibana/
+logstash
+elk-cec-docker
+*.class
