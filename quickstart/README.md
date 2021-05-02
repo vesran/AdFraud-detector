@@ -5,11 +5,7 @@ jar to use in the 'build/libs' folder.
 
 To run and test your application with an embedded instance of Flink use: 'gradle run'
 
-# Observability
-
-### Get your environment running 
-
-    From now, we suppose that you have set up kafka-zk containers and add events to the topics it contains
+## Get your environment running
 
 1. Install ElasticSearch and Kibana with docker - [docker](https://www.elastic.co/guide/en/elasticsearch/reference/current/docker.html) / [kibana](https://www.elastic.co/guide/en/kibana/current/docker.html) 
 
