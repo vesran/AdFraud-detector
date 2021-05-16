@@ -10,7 +10,7 @@ public class Click extends Activity {
         strb.append(" uid : ");
         strb.append(this.uid);
         strb.append(", timestamp : ");
-        strb.append(this.timestamp);
+        strb.append(this.getTimestampAsDate());
         strb.append(", ip : ");
         strb.append(this.ip);
         strb.append(", impressionId : ");
