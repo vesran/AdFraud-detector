@@ -14,28 +14,10 @@ import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonTyp
     }
 )
 public abstract class Activity {
-
-    @JsonProperty("eventType")      String eventType;
+    
     @JsonProperty("uid")            String uid;
     @JsonProperty("timestamp")      String timestamp;
     @JsonProperty("ip")             String ip;
     @JsonProperty("impressionId")   String impressionId;
 
-
-    @Override
-    public String toString() {
-        StringBuilder strb = new StringBuilder();
-        strb.append(this.eventType);
-        strb.append(" -> ");
-        strb.append(" uid : ");
-        strb.append(this.uid);
-        strb.append(", timestamp : ");
-        strb.append(this.timestamp);
-        strb.append(", ip : ");
-        strb.append(this.ip);
-        strb.append(", impressionId : ");
-        strb.append(this.impressionId);
-
-        return strb.toString();
-    }
 }
