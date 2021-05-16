@@ -23,8 +23,8 @@ To run and test your application with an embedded instance of Flink use: 'gradle
 
 5. Add an index pattern (*Tap "Index pattern in the search bar*) corresponding to `displays-clicks-idx` (for Scala) | `clickdisplayidx` (for java)
 
-6. Go to dashboards (*Click on the toggle on the left side) to add and visualize your own dashboards 
-7. Select : *Create New panel* and click on *Lens* to start do some analysis
+6. Go to dashboards (*Click on the toggle on the left side*) to add and visualize your own dashboards 
+7. Select : *Create New panel* and click on *Lens* to start doing some visual analysis
 
 #### Example of obtainable dashboards - 
 ---
