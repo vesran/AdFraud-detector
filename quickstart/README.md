@@ -21,7 +21,7 @@ To run and test your application with an embedded instance of Flink use: 'gradle
 
 4. Go to Kibana UI : [http://localhost:5601](http://localhost:5601)
 
-5. Add an index pattern (*Tap "Index pattern in the search bar*) corresponding to `displays-clicks-idx` (for Scala) | `clickdisplayidx` (for java)
+5. Add an index pattern (*Tap "Index pattern in the search bar*) corresponding to `displays-clicks-idx` (for Scala) | `clickdisplayidx` (for java) and choose ```timestamp``` as Time field.
 
 6. Go to dashboards (*Click on the toggle on the left side*) to add and visualize your own dashboards 
 7. Select : *Create New panel* and click on *Lens* to start doing some visual analysis
