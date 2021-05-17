@@ -16,6 +16,10 @@ import java.util.*;
 
 public class ActivityConsumer {
 
+    public static Date convertToDate(String s) {
+        long unix_seconds = Long.parseLong(s);
+        return new Date(unix_seconds * 1000L);
+    }
 
     public static void main(String[] args) {
         List<String> topics = new ArrayList<>();
@@ -43,10 +47,10 @@ public class ActivityConsumer {
                     }
 
                     public IndexRequest createIndexRequest(Activity element) {
-                        Map<String, String> json = new HashMap<>();
+                        Map<String, Object> json = new HashMap<>();
+                        json.put("timestamp", convertToDate(element.timestamp));
                         json.put("eventType", element.eventType);
                         json.put("uid", element.uid);
-                        json.put("timestamp", element.timestamp);
                         json.put("ip", element.ip);
                         json.put("impressionId", element.impressionId);
 
