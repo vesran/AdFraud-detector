@@ -44,7 +44,7 @@ import org.elasticsearch.client.{Requests, RestClientBuilder}
  * If you change the name of the main class (with the public static void main(String[] args))
  * method, change the respective entry in the POM.xml file (simply search for 'mainClass').
  */
-object StreamingJob {
+object StreamingJob2 {
   def main(args: Array[String]) {
     // set up the streaming execution environment
     val env = StreamExecutionEnvironment.getExecutionEnvironment
