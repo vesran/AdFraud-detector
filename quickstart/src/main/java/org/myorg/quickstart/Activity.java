@@ -25,6 +25,12 @@ public class Activity {
         this.impressionId = impressionId;
     }
 
+    public String getUid() {
+        return this.uid;
+    }
+
+    public String getIp() { return this.ip; }
+
     @Override
     public String toString() {
         StringBuilder strb = new StringBuilder();
