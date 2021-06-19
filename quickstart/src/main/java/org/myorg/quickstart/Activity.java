@@ -41,6 +41,55 @@ public class Activity {
 
         return strb.toString();
     }
+
+    public String getEventType() {
+        return eventType;
+    }
+
+    public void setEventType(String eventType) {
+        this.eventType = eventType;
+    }
+
+    public String getUid() {
+        return this.uid;
+    }
+
+    public void setUid(String uid) {
+        this.uid = uid;
+    }
+
+    public String getTimestamp() {
+        return timestamp;
+    }
+
+    public void setTimestamp(String timestamp) {
+        this.timestamp = timestamp;
+    }
+
+    public String getIp() {
+        return ip;
+    }
+
+    public void setIp(String ip) {
+        this.ip = ip;
+    }
+
+    public String getImpressionId() {
+        return impressionId;
+    }
+
+    public void setImpressionId(String impressionId) {
+        this.impressionId = impressionId;
+    }
+
+    public boolean isClick(){
+        return this.eventType.equals("click");
+    }
+
+    public boolean isDisplay(){
+        return this.eventType.equals("display");
+    }
+
 }
 
 /*
