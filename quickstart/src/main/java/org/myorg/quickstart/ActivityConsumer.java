@@ -50,7 +50,7 @@ public class ActivityConsumer {
 
                     private transient ValueState<Integer> countClicksState;
                     private transient ValueState<Integer> countDisplaysState;
-                    private transient ValueState<Long> timerState;
+                    //private transient ValueState<Long> timerState;
 
                     @Override
                     public void open(Configuration parameters) {
@@ -62,10 +62,10 @@ public class ActivityConsumer {
                                 "countDisplays",
                                 Types.INT);
                         countDisplaysState = getRuntimeContext().getState(flagDisplayDescriptor);
-                        ValueStateDescriptor<Long> timerDescriptor = new ValueStateDescriptor<>(
+                       /* ValueStateDescriptor<Long> timerDescriptor = new ValueStateDescriptor<>(
                                 "timer-state",
                                 Types.LONG);
-                        timerState = getRuntimeContext().getState(timerDescriptor);
+                        timerState = getRuntimeContext().getState(timerDescriptor);*/
                     }
 
                     @Override
