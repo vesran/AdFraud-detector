@@ -45,112 +45,45 @@ public class ActivityConsumer {
         properties.setProperty("bootstrap.servers", "localhost:9092");
         properties.setProperty("zookeeper.connect", "localhost:2181");
         properties.setProperty("group.id", "test");
+        FlinkKafkaConsumer<Activity> kafkaSource = new FlinkKafkaConsumer<>(topics, new ActivityDeserializationSchema(), properties);
+        kafkaSource.assignTimestampsAndWatermarks(
+                WatermarkStrategy
+                .forBoundedOutOfOrderness(Duration.ofSeconds(10)));
+        DataStream<Activity> stream = env.addSource(kafkaSource);
 
-
-        DataStream<Activity> stream = env.addSource(new FlinkKafkaConsumer<>(topics, new ActivityDeserializationSchema(), properties))
-                .setParallelism(1)
-                .assignTimestampsAndWatermarks(WatermarkStrategy
-                .forBoundedOutOfOrderness(Duration.ofSeconds(1)));
-
-
-        DataStream<Alert> alerts;
-        alerts = stream
+        DataStream<Tuple2<String, Integer>> uidAnalysis = stream
                 .keyBy(Activity::getUid)
-                .process(new KeyedProcessFunction<String, Activity, Alert>() { // Anonymous class because there is for some reason a problem when passing fraud detector
-                    public static final int thresholdActivity = 8;
-                    public static final double thresholdClickPerDisplay = 0.75;
-
-                    private transient ValueState<Integer> countClicksState;
-                    private transient ValueState<Integer> countDisplaysState;
-                    //private transient ValueState<Long> timerState;
-
+                .window(TumblingEventTimeWindows.of(Time.seconds(1)))
+                .process(new ProcessWindowFunction<Activity, Tuple2<String, Integer>, String, TimeWindow>() {
                     @Override
-                    public void open(Configuration parameters) {
-                        ValueStateDescriptor<Integer> flagClickDescriptor = new ValueStateDescriptor<>(
-                                "countClicks",
-                                Types.INT);
-                        countClicksState = getRuntimeContext().getState(flagClickDescriptor);
-                        ValueStateDescriptor<Integer> flagDisplayDescriptor = new ValueStateDescriptor<>(
-                                "countDisplays",
-                                Types.INT);
-                        countDisplaysState = getRuntimeContext().getState(flagDisplayDescriptor);
-                       /* ValueStateDescriptor<Long> timerDescriptor = new ValueStateDescriptor<>(
-                                "timer-state",
-                                Types.LONG);
-                        timerState = getRuntimeContext().getState(timerDescriptor);*/
-                    }
-
-                    @Override
-                    public void processElement(Activity activity, Context context, Collector<Alert> collector) throws Exception {
-
-                        // Set the initial state for counting purpose
-                        if (countClicksState.value() == null) {
-                            countClicksState.update(0);
+                    public void process(String key, Context context, Iterable<Activity> iterable, Collector<Tuple2<String, Integer>> collector) throws Exception {
+                        Integer count = 0;
+                        Activity previous = null;
+                        System.out.println("key of key by : "+key+" and key from iterable : "+key);
+                        for (Activity in: iterable) {
+                            if(in.isClick()){
+                                count++;
+                            }
+                            if (previous != null) {
+                                System.out.println(" previous "+previous.timestamp+" in "+in.timestamp+" time diff in seconds "+computeReactionTime(previous.timestamp, in.timestamp));
+                            }
+                            if (previous != null && previous.isDisplay() && in.isClick() && computeReactionTime(previous.timestamp, in.timestamp) < MIN_REACTION_TIME) {
+                                System.out.println("Alert for user : "+key+" with a reaction time too fast (<1 seconds)");
+                            }
+                            previous = in;
                         }
-                        if (countDisplaysState.value() == null) {
-                            countDisplaysState.update(0);
-                        }
-
-                        // Update states with the event received
-                        if (activity.isClick()) {
-                            countClicksState.update(countClicksState.value() + 1);
-                        }
-                        else {
-                            countDisplaysState.update(countDisplaysState.value() + 1);
-                        }
-
-                        Integer numberOfClicks = countClicksState.value();
-                        Integer numberOfDisplays = countDisplaysState.value();
-
-                        System.out.println("Number of displays for uid : "+activity.getUid()+" is : "+numberOfDisplays+" and number of clics is "+numberOfClicks);
-                        // Fraud detection rule for alerting
-                        if (numberOfDisplays> thresholdActivity && (float) numberOfClicks / numberOfDisplays > thresholdClickPerDisplay)
+                        if (count > MAX_CLICKS_PER_WINDOW)
                         {
-                            Alert alert = new Alert(FraudulentPatterns.MANY_CLICKS);
-                            alert.setUidClickPerDisplayRatio((float) numberOfClicks / numberOfDisplays);
-                            alert.setId(activity.getUid());
-                            collector.collect(alert);
+                            System.out.println("Alert for user : "+previous.uid+" with a number of clicks per window too high");
                         }
+                        System.out.println("Window: "+context.window().toString()+" watermark: "+context.currentWatermark());
+                        collector.collect(new Tuple2<String, Integer>(context.window().toString(), count));
                     }
-                })
-                .name("fraud-detector");
+                });
 
-        List<HttpHost> httpHosts = new ArrayList<>();
-        httpHosts.add(new HttpHost("127.0.0.1", 9200, "http"));
-        httpHosts.add(new HttpHost("10.2.3.1", 9200, "http"));
-
-        // use a ElasticsearchSink.Builder to create an ElasticsearchSink
-        ElasticsearchSink.Builder<Activity> esSinkBuilder = new ElasticsearchSink.Builder<>(
-                httpHosts,
-                new ElasticsearchSinkFunction<Activity>() {
-                    @Override
-                    public void process(Activity activity, RuntimeContext runtimeContext, RequestIndexer requestIndexer) {
-                        requestIndexer.add(createIndexRequest(activity));
-                    }
-
-                    public IndexRequest createIndexRequest(Activity element) {
-                        Map<String, String> json = new HashMap<>();
-                        json.put("eventType", element.eventType);
-                        json.put("uid", element.uid);
-                        json.put("timestamp", element.timestamp);
-                        json.put("ip", element.ip);
-                        json.put("impressionId", element.impressionId);
-
-                        return Requests.indexRequest()
-                                .index("clicksdisplaysidx")
-                                .type("Activity")
-                                .source(json);
-                    }
-                }
-        );
-
-        // configuration for the bulk requests; this instructs the sink to emit after every element, otherwise they would be buffered
-        esSinkBuilder.setBulkFlushMaxActions(1);
-        stream.
-                 addSink(esSinkBuilder.build());
-        alerts
+        /*uidAnalysis
                 .addSink(new AlertSink())
-                .name("send-alerts");
+                .name("send-alerts");*/
 
         try {
             env.execute("Flink Streaming Java API Skeleton");
@@ -159,5 +92,17 @@ public class ActivityConsumer {
         }
     }
 
-
+    /**
+     * @param timestamp1
+     * @param timestamp2
+     * @return time difference in seconds
+     */
+    public static double computeReactionTime(String timestamp1, String timestamp2) {
+        Timestamp timestamp_1 = new Timestamp(Long.parseLong(timestamp1));
+        Timestamp timestamp_2 = new Timestamp(Long.parseLong(timestamp2));
+        // time difference in seconds
+        long milliseconds = Math.abs(timestamp_2.getTime() - timestamp_1.getTime());
+        double seconds = (double) milliseconds / 10000000;
+        return seconds;
+    }
 }
