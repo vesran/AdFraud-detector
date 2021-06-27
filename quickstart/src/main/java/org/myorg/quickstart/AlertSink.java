@@ -8,6 +8,6 @@ public class AlertSink extends Object
     }
     public void invoke(Alert value,
                        SinkFunction.Context context){
-        System.out.println("Potential fraudulent action detected for user with uid : "+value.getId());
+        System.out.println("Potential fraudulent action detected for user with uid : "+value.getId()+" with "+value.getAlertPattern());
     }
 }
