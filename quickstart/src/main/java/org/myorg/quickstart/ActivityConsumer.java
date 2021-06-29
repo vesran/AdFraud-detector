@@ -11,6 +11,7 @@ import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.api.java.tuple.Tuple;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
+import org.apache.flink.api.java.tuple.Tuple5;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
@@ -27,6 +28,7 @@ import org.apache.flink.util.Collector;
 import org.apache.http.HttpHost;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.client.Requests;
+import scala.Array;
 import scala.Int;
 
 import java.time.Duration;
@@ -52,36 +54,61 @@ public class ActivityConsumer {
         FlinkKafkaConsumer<Activity> kafkaSource = new FlinkKafkaConsumer<>(topics, new ActivityDeserializationSchema(), properties);
         kafkaSource.assignTimestampsAndWatermarks(
                 WatermarkStrategy
-                .forBoundedOutOfOrderness(Duration.ofSeconds(1)));
+                        .forBoundedOutOfOrderness(Duration.ofSeconds(1)));
         DataStream<Activity> stream = env.addSource(kafkaSource);
 
-        DataStream<Tuple3<String, String, String>> uidAnalysis = stream
-                .map((MapFunction<Activity, Tuple3<String, String, String>>) activity -> new Tuple3<>(activity.getUid(), activity.getTimestamp(), activity.getEventType()))
+        DataStream<Alert> uidAlerts = stream
+                .map(new MapFunction<Activity, Tuple5<String, String, String, String, String>>() {
+                    @Override
+                    public Tuple5<String, String, String, String, String> map(Activity activity) throws Exception {
+                        return new Tuple5<>(activity.getUid(), activity.getTimestamp(), activity.getEventType(), activity.getImpressionId(), activity.getIp());
+                    }
+                })
                 .keyBy(0)
-                .window(TumblingEventTimeWindows.of(Time.minutes(10)))
-                .process(new ProcessWindowFunction<Tuple3<String, String, String>, Tuple3<String, String, String>, Tuple, TimeWindow>() {
-                            @Override
-                            public void process(Tuple key, Context context, Iterable<Tuple3<String, String, String>> iterable, Collector<Tuple3<String, String, String>> collector) {
-                                int count = 0;
-                                Tuple3<String, String, String> previous = null;
-                                for (Tuple3<String, String, String> in : iterable) {
-                                    if (in.f2.equals("click")) {
-                                        count++;
+                .window(TumblingEventTimeWindows.of(Time.seconds(10)))
+                .process(new ProcessWindowFunction<Tuple5<String, String, String, String, String>, Alert, Tuple, TimeWindow>() {
+                    @Override
+                    public void process(Tuple key, Context context, Iterable<Tuple5<String, String, String, String, String>> iterable, Collector<Alert> collector) {
+                        int count = 0;
+                        double average_reaction_time = 0;
+                        double acc_size = 0;
+                        ArrayList<Tuple5<String, String, String, String, String>> previouses = new ArrayList();
+                        for (Tuple5<String, String, String, String, String> in : iterable) {
+                            if (in.f2.equals("click")) {
+                                count++;
+                                if (!previouses.isEmpty()) {
+                                    for (Tuple5<String, String, String, String, String>  previous_event : previouses) {
+                                        if (previous_event.f2.equals("display") && previous_event.f3.equals(in.f3) && previous_event.f4.equals((in.f4))){
+                                            average_reaction_time+=computeReactionTime(previous_event.f1,in.f1);
+                                            acc_size++;
+                                        }
                                     }
-                                    if (previous != null && previous.f2.equals("display") && in.f2.equals("click") && computeReactionTime(previous.f1, in.f1) < MIN_REACTION_TIME) {
-                                        Alert alert = new Alert(FraudulentPatterns.LOW_REACTION_TIME);
-                                        collector.collect(new Tuple3<>(key.toString(), alert.toString(), context.window().toString()));
-                                    }
-                                    previous = in;
                                 }
-                                if (count > MAX_CLICKS_PER_WINDOW) {
-                                    Alert alert = new Alert(FraudulentPatterns.MANY_CLICKS);
-                                    collector.collect(new Tuple3<>(key.toString(), alert.toString(), context.window().toString()));
+                                if (acc_size > 0) {
+                                    average_reaction_time /= acc_size;
+                                }
+                                if (average_reaction_time<MIN_REACTION_TIME && acc_size>0)
+                                {
+                                    Alert alert = new Alert(FraudulentPatterns.LOW_REACTION_TIME);
+                                    alert.setId(key.toString());
+                                    alert.setImpressionId(in.f3);
+                                    alert.setIp(in.f4);
+                                    collector.collect(alert);
                                 }
                             }
-                        });
+                            previouses.add(in);
+                        }
+                        if (count > MAX_CLICKS_PER_WINDOW) {
+                            Alert alert = new Alert(FraudulentPatterns.MANY_CLICKS);
+                            alert.setId(key.toString());
+                            collector.collect(alert);
+                        }
+                    }
+                });
 
-        uidAnalysis.print();
+        uidAlerts
+                .addSink(new AlertSink())
+                .name("Uid Alert Sink");
 
         try {
             env.execute("Flink Streaming Java API Skeleton");
@@ -89,16 +116,16 @@ public class ActivityConsumer {
             e.printStackTrace();
         }
     }
-
     /**
      * @param timestamp1 first timestamp
      * @param timestamp2 second timestamp
      * @return time difference in seconds
      */
-    public static double computeReactionTime(String timestamp1, String timestamp2) {
+    public static double computeReactionTime (String timestamp1, String timestamp2){
         Long timestamp_1 = Long.parseLong(timestamp1);
         Long timestamp_2 = Long.parseLong(timestamp2);
         // time difference in seconds
         return Math.abs(timestamp_2 - timestamp_1);
     }
 }
+

@@ -1,8 +1,18 @@
 package org.myorg.quickstart;
 
-public final class Alert extends Object {
+public final class Alert extends Activity {
     private String Id;
     private FraudulentPatterns alertPattern;
+
+    public Integer getCountElement() {
+        return countElement;
+    }
+
+    public void setCountElement(Integer countElement) {
+        this.countElement = countElement;
+    }
+
+    private Integer countElement;
 
     public Alert(){}
     public Alert(FraudulentPatterns alertPattern){
