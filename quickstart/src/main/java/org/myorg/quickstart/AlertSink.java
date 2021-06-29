@@ -17,8 +17,16 @@ public class AlertSink implements SinkFunction<Alert> {
         {
             result = "Potential fraudulent action detected for user with uid : "+value.getId()+", ip : "+value.getIp()+" for ads with impression id :"+value.getImpressionId()+" with a "+value.getAlertPattern()+" pattern";
         }
-        else if (value.getAlertPattern() == FraudulentPatterns.MANY_CLICKS){
+        else if (value.getAlertPattern() == FraudulentPatterns.MANY_CLICKS)
+        {
             result = "Potential fraudulent action detected for user with uid : "+value.getId()+" with a "+value.getAlertPattern()+" pattern";
+        }
+        else if (value.getAlertPattern() == FraudulentPatterns.MANY_EVENTS_FOR_IP)
+        {
+            result = "Potential fraudulent action detected for user with ip : "+value.getIp()+" with a "+value.getAlertPattern()+" pattern";
+        }
+        else {
+            return;
         }
         System.out.println(result);
         // Sinking result to a file

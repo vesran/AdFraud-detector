@@ -3,6 +3,7 @@ package org.myorg.quickstart;
 import java.sql.Timestamp;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.AggregateFunction;
+import org.apache.flink.api.common.functions.FilterFunction;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.functions.RuntimeContext;
 import org.apache.flink.api.common.state.ValueState;
@@ -39,6 +40,7 @@ public class ActivityConsumer {
 
     public static int MAX_CLICKS_PER_WINDOW = 10;
     public static int MIN_REACTION_TIME = 3;
+    public static int MAX_IP_COUNT = 10;
 
     public static void main(String[] args) {
 
@@ -56,6 +58,46 @@ public class ActivityConsumer {
                 WatermarkStrategy
                         .forBoundedOutOfOrderness(Duration.ofSeconds(1)));
         DataStream<Activity> stream = env.addSource(kafkaSource);
+
+        DataStream<Alert> ipCount = stream
+                .map(new MapFunction<Activity,Tuple2<String, Integer>>() {
+                    @Override
+                    public Tuple2<String, Integer> map(Activity activity) throws Exception {
+                        return new Tuple2<>(activity.getIp(), 1);
+                    }
+                })
+                .keyBy(0)
+                .window(TumblingEventTimeWindows.of(Time.seconds(10)))
+                .aggregate(new AggregateFunction<Tuple2<String, Integer>, Tuple2<String, Integer>, Alert>() {
+                               @Override
+                               public Tuple2<String, Integer> createAccumulator() {
+                                   return new Tuple2<>("", 0);
+                               }
+
+                               @Override
+                               public Tuple2<String, Integer> add(Tuple2<String, Integer> value, Tuple2<String, Integer> accumulator) {
+                                   //return new Tuple2<>(value.f0, value.f1+accumulator.f1);
+                                   return new Tuple2<>(value.f0, 1+accumulator.f1);
+                               }
+
+                               @Override
+                               public Alert getResult(Tuple2<String, Integer> accumulator) {
+                                   System.out.println(accumulator);
+                                   if (accumulator.f1>= MAX_IP_COUNT)
+                                   {
+                                       Alert alert = new Alert(FraudulentPatterns.MANY_EVENTS_FOR_IP);
+                                       alert.setIp(accumulator.f0);
+                                       return alert;
+                                   }
+                                   else
+                                       return null;
+                               }
+                               @Override
+                               public Tuple2<String, Integer> merge(Tuple2<String, Integer> acc1, Tuple2<String, Integer> acc2) {
+                                   return new Tuple2<>(acc1.f0 +acc2.f0, acc1.f1+acc2.f1);
+                               }
+                           }
+                );
 
         DataStream<Alert> uidAlerts = stream
                 .map(new MapFunction<Activity, Tuple5<String, String, String, String, String>>() {
@@ -109,6 +151,10 @@ public class ActivityConsumer {
         uidAlerts
                 .addSink(new AlertSink())
                 .name("Uid Alert Sink");
+
+        ipCount
+                .addSink(new AlertSink())
+                .name("IP Alert Sink");
 
         try {
             env.execute("Flink Streaming Java API Skeleton");
