@@ -35,8 +35,6 @@ public class AlertSink implements SinkFunction<Alert> {
             File myObj = new File("alerts.txt");
             if (myObj.createNewFile()) {
                 System.out.println("File created: " + myObj.getName());
-            } else {
-                System.out.println("File already exists.");
             }
         } catch (IOException e) {
             System.out.println("An error occurred.");
@@ -47,7 +45,6 @@ public class AlertSink implements SinkFunction<Alert> {
             FileWriter myWriter = new FileWriter("alerts.txt", true);
             myWriter.write(result+"\n");
             myWriter.close();
-            System.out.println("Successfully wrote alert to the file.");
         } catch (IOException e) {
             System.out.println("An error occurred.");
             e.printStackTrace();

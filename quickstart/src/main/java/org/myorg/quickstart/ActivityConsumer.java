@@ -68,36 +68,7 @@ public class ActivityConsumer {
                 })
                 .keyBy(0)
                 .window(TumblingEventTimeWindows.of(Time.seconds(10)))
-                .aggregate(new AggregateFunction<Tuple2<String, Integer>, Tuple2<String, Integer>, Alert>() {
-                               @Override
-                               public Tuple2<String, Integer> createAccumulator() {
-                                   return new Tuple2<>("", 0);
-                               }
-
-                               @Override
-                               public Tuple2<String, Integer> add(Tuple2<String, Integer> value, Tuple2<String, Integer> accumulator) {
-                                   //return new Tuple2<>(value.f0, value.f1+accumulator.f1);
-                                   return new Tuple2<>(value.f0, 1+accumulator.f1);
-                               }
-
-                               @Override
-                               public Alert getResult(Tuple2<String, Integer> accumulator) {
-                                   System.out.println(accumulator);
-                                   if (accumulator.f1>= MAX_IP_COUNT)
-                                   {
-                                       Alert alert = new Alert(FraudulentPatterns.MANY_EVENTS_FOR_IP);
-                                       alert.setIp(accumulator.f0);
-                                       return alert;
-                                   }
-                                   else
-                                       return null;
-                               }
-                               @Override
-                               public Tuple2<String, Integer> merge(Tuple2<String, Integer> acc1, Tuple2<String, Integer> acc2) {
-                                   return new Tuple2<>(acc1.f0 +acc2.f0, acc1.f1+acc2.f1);
-                               }
-                           }
-                );
+                .aggregate(new IpFunctionAggregate(MAX_IP_COUNT));
 
         DataStream<Alert> uidAlerts = stream
                 .map(new MapFunction<Activity, Tuple5<String, String, String, String, String>>() {
@@ -108,45 +79,7 @@ public class ActivityConsumer {
                 })
                 .keyBy(0)
                 .window(TumblingEventTimeWindows.of(Time.seconds(10)))
-                .process(new ProcessWindowFunction<Tuple5<String, String, String, String, String>, Alert, Tuple, TimeWindow>() {
-                    @Override
-                    public void process(Tuple key, Context context, Iterable<Tuple5<String, String, String, String, String>> iterable, Collector<Alert> collector) {
-                        int count = 0;
-                        double average_reaction_time = 0;
-                        double acc_size = 0;
-                        ArrayList<Tuple5<String, String, String, String, String>> previouses = new ArrayList();
-                        for (Tuple5<String, String, String, String, String> in : iterable) {
-                            if (in.f2.equals("click")) {
-                                count++;
-                                if (!previouses.isEmpty()) {
-                                    for (Tuple5<String, String, String, String, String>  previous_event : previouses) {
-                                        if (previous_event.f2.equals("display") && previous_event.f3.equals(in.f3) && previous_event.f4.equals((in.f4))){
-                                            average_reaction_time+=computeReactionTime(previous_event.f1,in.f1);
-                                            acc_size++;
-                                        }
-                                    }
-                                }
-                                if (acc_size > 0) {
-                                    average_reaction_time /= acc_size;
-                                }
-                                if (average_reaction_time<MIN_REACTION_TIME && acc_size>0)
-                                {
-                                    Alert alert = new Alert(FraudulentPatterns.LOW_REACTION_TIME);
-                                    alert.setId(key.toString());
-                                    alert.setImpressionId(in.f3);
-                                    alert.setIp(in.f4);
-                                    collector.collect(alert);
-                                }
-                            }
-                            previouses.add(in);
-                        }
-                        if (count > MAX_CLICKS_PER_WINDOW) {
-                            Alert alert = new Alert(FraudulentPatterns.MANY_CLICKS);
-                            alert.setId(key.toString());
-                            collector.collect(alert);
-                        }
-                    }
-                });
+                .process(new UidFunctionProcess(MIN_REACTION_TIME, MAX_CLICKS_PER_WINDOW));
 
         uidAlerts
                 .addSink(new AlertSink())
@@ -162,16 +95,6 @@ public class ActivityConsumer {
             e.printStackTrace();
         }
     }
-    /**
-     * @param timestamp1 first timestamp
-     * @param timestamp2 second timestamp
-     * @return time difference in seconds
-     */
-    public static double computeReactionTime (String timestamp1, String timestamp2){
-        Long timestamp_1 = Long.parseLong(timestamp1);
-        Long timestamp_2 = Long.parseLong(timestamp2);
-        // time difference in seconds
-        return Math.abs(timestamp_2 - timestamp_1);
-    }
+
 }
 

@@ -92,36 +92,3 @@ public class Activity {
 
 }
 
-/*
-
-
-public class Activity {
-    //using java.util.Date for better readability
-    //@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "dd-MM-yyyy hh:mm:ss:SSS")
-    private String eventType;
-    private String uid;
-    private String timestamp;
-    private String ip;
-    private String impressionId;
-
-    public Activity(final String eventType, final String uid, final String timestamp, final String ip, final String impressionId)
-    {
-        this.eventType = eventType;
-        this.uid = uid;
-        this.timestamp = timestamp;
-        this.ip = ip;
-        this.impressionId = impressionId;
-    }
-
-    @Override
-    public String toString() {
-        final StringBuilder sb = new StringBuilder("{");
-        sb.append("eventType").append(eventType);
-        sb.append("uid").append(uid);
-        sb.append("timestamp").append(timestamp);
-        sb.append("ip").append(ip);
-        sb.append("impressionId").append(impressionId).append("}");
-        return sb.toString();
-    }
-}
- */

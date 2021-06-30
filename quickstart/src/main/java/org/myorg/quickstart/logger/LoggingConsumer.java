@@ -1,4 +1,4 @@
-package org.myorg.quickstart;
+package org.myorg.quickstart.logger;
 
 import org.apache.kafka.clients.consumer.*;
 import org.apache.kafka.clients.consumer.Consumer;
