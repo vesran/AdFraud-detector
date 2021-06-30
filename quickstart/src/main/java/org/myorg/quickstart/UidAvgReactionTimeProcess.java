@@ -1,6 +1,7 @@
 package org.myorg.quickstart;
 
 import org.apache.flink.api.java.tuple.Tuple;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple5;
 import org.apache.flink.streaming.api.functions.windowing.ProcessWindowFunction;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
@@ -8,20 +9,17 @@ import org.apache.flink.util.Collector;
 
 import java.util.ArrayList;
 
-
-public class UidFunctionProcess extends ProcessWindowFunction<Tuple5<String, String, String, String, String>, Alert, Tuple, TimeWindow>{
+public class UidAvgReactionTimeProcess extends ProcessWindowFunction<Tuple5<String, String, String, String, String>, Tuple2<String, Double>, Tuple, TimeWindow> {
 
     private final int minReactionTime;
-    private final int maxClickPerWindow;
 
-    public UidFunctionProcess(int minReactionTime, int maxClickPerWindow) {
+    public UidAvgReactionTimeProcess(int minReactionTime) {
         super();
         this.minReactionTime = minReactionTime;
-        this.maxClickPerWindow = maxClickPerWindow;
     }
 
     @Override
-    public void process(Tuple key, Context context, Iterable<Tuple5<String, String, String, String, String>> iterable, Collector<Alert> collector) throws Exception  {
+    public void process(Tuple key, Context context, Iterable<Tuple5<String, String, String, String, String>> iterable, Collector<Tuple2<String, Double>> collector) throws Exception {
         int count = 0;
         double average_reaction_time = 0;
         double acc_size = 0;
@@ -34,27 +32,23 @@ public class UidFunctionProcess extends ProcessWindowFunction<Tuple5<String, Str
                         if (previous_event.f2.equals("display") && previous_event.f3.equals(in.f3) && previous_event.f4.equals((in.f4))){
                             average_reaction_time+=computeReactionTime(previous_event.f1,in.f1);
                             acc_size++;
+                            break;
                         }
                     }
-                }
-                if (acc_size > 0) {
-                    average_reaction_time /= acc_size;
-                }
-                if (average_reaction_time<this.minReactionTime && acc_size>0)
-                {
-                    Alert alert = new Alert(FraudulentPatterns.LOW_REACTION_TIME);
-                    alert.setId(key.toString());
-                    alert.setImpressionId(in.f3);
-                    alert.setIp(in.f4);
-                    collector.collect(alert);
                 }
             }
             previouses.add(in);
         }
-        if (count > this.maxClickPerWindow) {
-            Alert alert = new Alert(FraudulentPatterns.MANY_CLICKS);
-            alert.setId(key.toString());
-            collector.collect(alert);
+
+        String uid = key.toString();
+        uid = uid.substring(1, uid.length()-1);
+        if (acc_size > 0) {
+            average_reaction_time /= acc_size;
+            collector.collect(new Tuple2<>(uid, average_reaction_time));
+        } else {
+            // If no click, set reaction time to positive inf to filter them easily
+            // since we only want reaction time below a threshold.
+            collector.collect(new Tuple2<>(uid, Double.POSITIVE_INFINITY));
         }
     }
 

@@ -2,6 +2,8 @@ package org.myorg.quickstart;
 
 public final class Alert extends Activity {
     private String Id;
+    private double timeReaction;
+    private int numClick;
     private FraudulentPatterns alertPattern;
 
     public Integer getCountElement() {
@@ -10,6 +12,22 @@ public final class Alert extends Activity {
 
     public void setCountElement(Integer countElement) {
         this.countElement = countElement;
+    }
+
+    public double getTimeReaction() {
+        return timeReaction;
+    }
+
+    public void setTimeReaction(double timeReaction) {
+        this.timeReaction = timeReaction;
+    }
+
+    public int getNumClick() {
+        return numClick;
+    }
+
+    public void setNumClick(int numClick) {
+        this.numClick = numClick;
     }
 
     private Integer countElement;

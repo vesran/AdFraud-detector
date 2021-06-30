@@ -2,8 +2,7 @@ package org.myorg.tests;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.myorg.quickstart.ActivityConsumer;
-import org.myorg.quickstart.UidFunctionProcess;
+import org.myorg.quickstart._dev.UidFunctionProcess;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;

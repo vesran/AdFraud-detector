@@ -15,11 +15,11 @@ public class AlertSink implements SinkFunction<Alert> {
         // Outputting result
         if (value.getAlertPattern() == FraudulentPatterns.LOW_REACTION_TIME)
         {
-            result = "Potential fraudulent action detected for user with uid : "+value.getId()+", ip : "+value.getIp()+" for ads with impression id :"+value.getImpressionId()+" with a "+value.getAlertPattern()+" pattern";
+            result = "Potential fraudulent action detected for user with uid : "+value.getId()+ " avg time reaction :" + value.getTimeReaction() + ", ip : "+value.getIp()+" for ads with impression id :"+value.getImpressionId()+" with a "+value.getAlertPattern()+" pattern";
         }
         else if (value.getAlertPattern() == FraudulentPatterns.MANY_CLICKS)
         {
-            result = "Potential fraudulent action detected for user with uid : "+value.getId()+" with a "+value.getAlertPattern()+" pattern";
+            result = "Potential fraudulent action detected for user with uid : "+value.getId()+ " num clicks : " + value.getNumClick() +" with a "+value.getAlertPattern()+" pattern";
         }
         else if (value.getAlertPattern() == FraudulentPatterns.MANY_EVENTS_FOR_IP)
         {

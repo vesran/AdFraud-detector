@@ -6,6 +6,7 @@ import org.apache.flink.api.common.functions.*;
 import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.common.typeinfo.Types;
+import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
@@ -14,6 +15,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.datastream.ConnectedStreams;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
+import org.apache.flink.streaming.api.datastream.WindowedStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.KeyedProcessFunction;
 import org.apache.flink.streaming.api.functions.co.CoProcessFunction;
@@ -29,8 +31,6 @@ import org.apache.flink.util.Collector;
 import org.apache.http.HttpHost;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.client.Requests;
-import scala.Array;
-import scala.Int;
 
 import java.time.Duration;
 import java.util.*;
@@ -42,6 +42,7 @@ public class ActivityConsumer {
     public static int MIN_REACTION_TIME = 3;
     public static int MAX_IP_COUNT = 10;
     public static int WINDOW_SIZE = 10;
+    public static Time TIME_WINDOW = Time.minutes(WINDOW_SIZE);
 
     public static void main(String[] args) {
 
@@ -68,27 +69,11 @@ public class ActivityConsumer {
                     }
                 })
                 .keyBy(0)
-                .window(TumblingEventTimeWindows.of(Time.seconds(WINDOW_SIZE)))
+                .window(TumblingEventTimeWindows.of(TIME_WINDOW))
                 .aggregate(new IpFunctionAggregate(MAX_IP_COUNT));
 
-        // Join activity stream with ipCount : having the number of event associated to an ip in an activity
-        DataStream<ActivityStat> coStream = stream
-                .join(ipCount)
-                .where(Activity::getIp)
-                .equalTo(tuple -> tuple.f0)
-                .window(TumblingEventTimeWindows.of(Time.seconds(WINDOW_SIZE)))
-                .apply(new JoinFunction<Activity, Tuple2<String, Integer>, ActivityStat>() {
-                    @Override
-                    public ActivityStat join(Activity activity, Tuple2<String, Integer> numIp) throws Exception {
-                        return new ActivityStat(activity.getEventType(), activity.getUid(),
-                                activity.getTimestamp(), activity.getIp(), activity.getImpressionId(),
-                                numIp.f1);
-                    }
-                });
-        coStream.print();
-
         // Output ip alert
-        DataStream<Alert> ipAlertStream = ipCount
+        DataStream<Alert> ipAlerts = ipCount
                 .filter(new FilterFunction<Tuple2<String, Integer>>() {
                     @Override
                     public boolean filter(Tuple2<String, Integer> tuple) throws Exception {
@@ -104,7 +89,7 @@ public class ActivityConsumer {
                     }
                 });
 
-        DataStream<Alert> uidAlerts = stream
+        WindowedStream<Tuple5<String, String, String, String, String>, Tuple, TimeWindow> uidStream = stream
                 .map(new MapFunction<Activity, Tuple5<String, String, String, String, String>>() {
                     @Override
                     public Tuple5<String, String, String, String, String> map(Activity activity) throws Exception {
@@ -112,20 +97,128 @@ public class ActivityConsumer {
                     }
                 })
                 .keyBy(0)
-                .window(TumblingEventTimeWindows.of(Time.seconds(WINDOW_SIZE)))
-                .process(new UidFunctionProcess(MIN_REACTION_TIME, MAX_CLICKS_PER_WINDOW));
+                .window(TumblingEventTimeWindows.of(TIME_WINDOW));
+
+        DataStream<Tuple2<String, Double>> uidReactionTimes = uidStream
+            .process(new UidAvgReactionTimeProcess(MIN_REACTION_TIME));
+        DataStream<Alert> uidAlertReactionTime = uidReactionTimes
+                .filter(new FilterFunction<Tuple2<String, Double>>() {
+                    @Override
+                    public boolean filter(Tuple2<String, Double> tuple) throws Exception {
+                        return tuple.f1 < MIN_REACTION_TIME;
+                    }
+                })
+                .map(new MapFunction<Tuple2<String, Double>, Alert>() {
+                    @Override
+                    public Alert map(Tuple2<String, Double> tuple) throws Exception {
+                        Alert alert = new Alert(FraudulentPatterns.LOW_REACTION_TIME);
+                        alert.setId(tuple.f0);
+                        alert.setTimeReaction(tuple.f1);
+                        return alert;
+                    }
+                });
 
 
+        DataStream<Tuple2<String, Integer>> uidClickCounts = uidStream
+                .process(new UidClickCountProcess());
+        DataStream<Alert> uidAlertClicks = uidClickCounts
+                .filter(new FilterFunction<Tuple2<String, Integer>>() {
+                    @Override
+                    public boolean filter(Tuple2<String, Integer> tuple) throws Exception {
+                        return tuple.f1 > MAX_CLICKS_PER_WINDOW;
+                    }
+                })
+                .map(new MapFunction<Tuple2<String, Integer>, Alert>() {
+                    @Override
+                    public Alert map(Tuple2<String, Integer> tuple) throws Exception {
+                        Alert alert = new Alert(FraudulentPatterns.MANY_CLICKS);
+                        alert.setId(tuple.f0);
+                        alert.setNumClick(tuple.f1);
+                        return alert;
+                    }
+                });
 
-//        uidAlerts
+        // Join activity stream with ipCount : having the number of event associated to an ip in an activity
+        DataStream<ActivityStat> activityStats = stream
+                .join(ipCount)
+                .where(Activity::getIp)
+                .equalTo(tuple -> tuple.f0)
+                .window(TumblingEventTimeWindows.of(TIME_WINDOW))
+                .apply(new JoinFunction<Activity, Tuple2<String, Integer>, ActivityStat>() {
+                    @Override
+                    public ActivityStat join(Activity activity, Tuple2<String, Integer> numIp) throws Exception {
+                        ActivityStat a = new ActivityStat(activity.getEventType(), activity.getUid(),
+                                activity.getTimestamp(), activity.getIp(), activity.getImpressionId());
+                        a.setNumIpByUid(numIp.f1);
+                        return a;
+                    }
+                })
+                .join(uidReactionTimes)
+                .where(ActivityStat::getUid)
+                .equalTo(tuple -> tuple.f0)
+                .window(TumblingEventTimeWindows.of(TIME_WINDOW))
+                .apply(new JoinFunction<ActivityStat, Tuple2<String, Double>, ActivityStat>() {
+                    @Override
+                    public ActivityStat join(ActivityStat activityStat, Tuple2<String, Double> tuple) throws Exception {
+                        ActivityStat a = new ActivityStat(activityStat.getEventType(), activityStat.getUid(),
+                                activityStat.getTimestamp(), activityStat.getIp(), activityStat.getImpressionId());
+                        a.setNumIpByUid(activityStat.getNumIpByUid());
+                        a.setReactionTime(tuple.f1);
+                        return a;
+                    }
+                })
+                .join(uidClickCounts)
+                .where(ActivityStat::getUid)
+                .equalTo(tuple -> tuple.f0)
+                .window(TumblingEventTimeWindows.of(TIME_WINDOW))
+                .apply(new JoinFunction<ActivityStat, Tuple2<String, Integer>, ActivityStat>() {
+                    @Override
+                    public ActivityStat join(ActivityStat activityStat, Tuple2<String, Integer> tuple) throws Exception {
+                        ActivityStat a = new ActivityStat(activityStat.getEventType(), activityStat.getUid(),
+                                activityStat.getTimestamp(), activityStat.getIp(), activityStat.getImpressionId());
+                        a.setNumIpByUid(activityStat.getNumIpByUid());
+                        a.setReactionTime(activityStat.getReactionTime());
+                        a.setNumClicks(tuple.f1);
+                        return a;
+                    }
+                })
+                ;
+
+
+        DataStream<Double> ctr = activityStats
+                .keyBy(a -> 0)
+                .window(TumblingEventTimeWindows.of(TIME_WINDOW))
+                .process(new ProcessWindowFunction<ActivityStat, Double, Integer, TimeWindow>() {
+                    @Override
+                    public void process(Integer integer, Context context, Iterable<ActivityStat> iterable, Collector<Double> collector) throws Exception {
+                        double numClicks = 0.0;
+                        double numDisplays = 0;
+                        for (ActivityStat activity : iterable) {
+                            if (activity.getEventType().equals("click")) {
+                                numClicks++;
+                            } else {
+                                numDisplays++;
+                            }
+                        }
+                        System.out.println(numClicks + " " + numDisplays);
+                        collector.collect(numClicks / numDisplays);
+                    }
+                });
+
+        ctr.print();  // TODO : nothing has been filtered ! Add an ES-sink and do it on Kibana
+//        activityStats.print();
+
+//        uidAlertReactionTime
 //                .addSink(new AlertSink())
-//                .name("Uid Alert Sink");
+//                .name("Uid Time Reaction Alert Sink");
 //
-//        ipAlertStream
+//        uidAlertClicks
+//                .addSink(new AlertSink())
+//                .name("Uid Number of Click Alert Sink");
+//
+//        ipAlerts
 //                .addSink(new AlertSink())
 //                .name("IP Alert Sink");
-
-
 
         try {
             env.execute("Flink Streaming Java API Skeleton");
