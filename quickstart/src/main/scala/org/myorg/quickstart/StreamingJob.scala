@@ -31,6 +31,7 @@ import org.apache.http.HttpHost
 import org.apache.flink.streaming.connectors.elasticsearch6.{ElasticsearchSink, RestClientFactory}
 import org.elasticsearch.client.{Requests, RestClientBuilder}
 
+
 /**
  * Skeleton for a Flink Streaming Job.
  *
@@ -67,7 +68,6 @@ object StreamingJob {
      * https://flink.apache.org/docs/latest/apis/streaming/index.html
      *
      */
-
 
     val properties = new Properties()
     properties.setProperty("bootstrap.servers", "localhost:9092")
