@@ -1,4 +1,6 @@
-package org.myorg.quickstart;
+package org.myorg.quickstart.logger;
+
+import org.myorg.quickstart.logger.LoggingConsumer;
 
 public class Main {
 

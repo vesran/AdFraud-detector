@@ -41,38 +41,54 @@ public class Activity {
 
         return strb.toString();
     }
-}
 
-/*
+    public String getEventType() {
+        return eventType;
+    }
 
-
-public class Activity {
-    //using java.util.Date for better readability
-    //@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "dd-MM-yyyy hh:mm:ss:SSS")
-    private String eventType;
-    private String uid;
-    private String timestamp;
-    private String ip;
-    private String impressionId;
-
-    public Activity(final String eventType, final String uid, final String timestamp, final String ip, final String impressionId)
-    {
+    public void setEventType(String eventType) {
         this.eventType = eventType;
+    }
+
+    public String getUid() {
+        return this.uid;
+    }
+
+    public void setUid(String uid) {
         this.uid = uid;
+    }
+
+    public String getTimestamp() {
+        return timestamp;
+    }
+
+    public void setTimestamp(String timestamp) {
         this.timestamp = timestamp;
+    }
+
+    public String getIp() {
+        return ip;
+    }
+
+    public void setIp(String ip) {
         this.ip = ip;
+    }
+
+    public String getImpressionId() {
+        return impressionId;
+    }
+
+    public void setImpressionId(String impressionId) {
         this.impressionId = impressionId;
     }
 
-    @Override
-    public String toString() {
-        final StringBuilder sb = new StringBuilder("{");
-        sb.append("eventType").append(eventType);
-        sb.append("uid").append(uid);
-        sb.append("timestamp").append(timestamp);
-        sb.append("ip").append(ip);
-        sb.append("impressionId").append(impressionId).append("}");
-        return sb.toString();
+    public boolean isClick(){
+        return this.eventType.equals("click");
     }
+
+    public boolean isDisplay(){
+        return this.eventType.equals("display");
+    }
+
 }
- */
+
