@@ -11,8 +11,8 @@ import java.util.ArrayList;
 
 public class UidFunctionProcess extends ProcessWindowFunction<Tuple5<String, String, String, String, String>, Alert, Tuple, TimeWindow>{
 
-    private int minReactionTime;
-    private int maxClickPerWindow;
+    private final int minReactionTime;
+    private final int maxClickPerWindow;
 
     public UidFunctionProcess(int minReactionTime, int maxClickPerWindow) {
         super();
