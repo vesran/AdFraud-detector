@@ -37,7 +37,7 @@ $> docker-compose up -d
 
 6. To import the dashboard, go to `Menu > Stack Management > Saved Object > Import` and select the `kibana/dashboard.ndjson` file
 
-7. Click on the dashboard name once loaded or go to `Menu > Dashboard > [Dashboard name]`
+7. Click on the dashboard name once loaded or go to `Menu > Dashboard > [Dashboard name]`. You should wait around 10 minutes before a few events is injected to Elasticsearch.
 
 
 **Dashboard**
