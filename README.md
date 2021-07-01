@@ -17,11 +17,6 @@ Instruction here : [https://maven.apache.org/install.html](https://maven.apache.
 
 ## Startup application
 
-Should be as simple as :
-
-To check everything is working fine, you can go to `localhost:9000` and you should see a UI.
-Now Kafka/Zookeeper are running in background.
-
 1. Install ElasticSearch and Kibana with docker - [docker](https://www.elastic.co/guide/en/elasticsearch/reference/current/docker.html) / [kibana](https://www.elastic.co/guide/en/kibana/current/docker.html)
 
 2. Launch your containers following the instructions in the previous links (If you specify another port for any reasons, make sure that the ports are the same as the one provided in the flink files)
