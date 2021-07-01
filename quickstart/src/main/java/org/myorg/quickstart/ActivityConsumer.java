@@ -216,15 +216,15 @@ public class ActivityConsumer {
                 ;
 
 
-//        activityStats.addSink(getESSink("activitystats"));
+        activityStats.addSink(getESSink("activitystats"));
 
-//        uidAlertReactionTime
-//                .addSink(new AlertSink())
-//                .name("Uid Time Reaction Alert Sink");
-//
-//        uidAlertClicks
-//                .addSink(new AlertSink())
-//                .name("Uid Number of Click Alert Sink");
+        uidAlertReactionTime
+                .addSink(new AlertSink())
+                .name("Uid Time Reaction Alert Sink");
+
+        uidAlertClicks
+                .addSink(new AlertSink())
+                .name("Uid Number of Click Alert Sink");
 
         ipAlerts
                 .addSink(new AlertSink())
