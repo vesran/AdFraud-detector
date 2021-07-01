@@ -31,7 +31,7 @@ public class ActivityConsumer {
     public static int MIN_REACTION_TIME = 3;
     public static int MAX_IP_COUNT = 10;
     public static int WINDOW_SIZE = 10;
-    public static Time TIME_WINDOW = Time.seconds(WINDOW_SIZE);
+    public static Time TIME_WINDOW = Time.minutes(WINDOW_SIZE);
 
     public static Date convertToDate(String s) {
         long unix_seconds = Long.parseLong(s);
