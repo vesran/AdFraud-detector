@@ -2,6 +2,9 @@
 
 This repository contains a Flink application and an Elasticsearch-Kibana pipeline to monitor events on a dashboard.
 
+**Dashboard**
+![alt text](./quickstart/data/dashboard.png)
+
 # Get your environment running
 
 ## Install Docker
@@ -38,10 +41,6 @@ $> docker-compose up -d
 6. To import the dashboard, go to `Menu > Stack Management > Saved Object > Import` and select the `kibana/dashboard.ndjson` file
 
 7. Click on the dashboard name once loaded or go to `Menu > Dashboard > [Dashboard name]`. You should wait around 10 minutes before a few events is injected to Elasticsearch.
-
-
-**Dashboard**
-![alt text](./quickstart/data/dashboard.png)
 
 
 ## Read kafka topics using CLI
