@@ -7,3 +7,4 @@ logstash
 elk-cec-docker
 *.class
 target/*
+.ipynb_checkpoints
