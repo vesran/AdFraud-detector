@@ -11,11 +11,8 @@ import java.util.ArrayList;
 
 public class UidAvgReactionTimeProcess extends ProcessWindowFunction<Tuple5<String, String, String, String, String>, Tuple2<String, Double>, Tuple, TimeWindow> {
 
-    private final int minReactionTime;
-
-    public UidAvgReactionTimeProcess(int minReactionTime) {
+    public UidAvgReactionTimeProcess() {
         super();
-        this.minReactionTime = minReactionTime;
     }
 
     @Override
@@ -48,7 +45,7 @@ public class UidAvgReactionTimeProcess extends ProcessWindowFunction<Tuple5<Stri
         } else {
             // If no click, set reaction time to positive inf to filter them easily
             // since we only want reaction time below a threshold.
-            collector.collect(new Tuple2<>(uid, Double.POSITIVE_INFINITY));
+            collector.collect(new Tuple2<>(uid, 10000.));
         }
     }
 

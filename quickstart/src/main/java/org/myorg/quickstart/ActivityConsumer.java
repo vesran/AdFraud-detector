@@ -1,24 +1,13 @@
 package org.myorg.quickstart;
 
-import java.sql.Timestamp;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.*;
-import org.apache.flink.api.common.state.ValueState;
-import org.apache.flink.api.common.state.ValueStateDescriptor;
-import org.apache.flink.api.common.typeinfo.Types;
-import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple;
 import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.api.java.tuple.Tuple5;
-import org.apache.flink.configuration.Configuration;
-import org.apache.flink.streaming.api.datastream.ConnectedStreams;
 import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.datastream.WindowedStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.functions.KeyedProcessFunction;
-import org.apache.flink.streaming.api.functions.co.CoProcessFunction;
 import org.apache.flink.streaming.api.functions.windowing.ProcessWindowFunction;
 import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
 import org.apache.flink.streaming.api.windowing.time.Time;
@@ -38,11 +27,53 @@ import java.util.*;
 
 public class ActivityConsumer {
 
-    public static int MAX_CLICKS_PER_WINDOW = 10;
+    public static int MAX_CLICKS_PER_WINDOW = 15;
     public static int MIN_REACTION_TIME = 3;
     public static int MAX_IP_COUNT = 10;
     public static int WINDOW_SIZE = 10;
     public static Time TIME_WINDOW = Time.minutes(WINDOW_SIZE);
+
+    public static Date convertToDate(String s) {
+        long unix_seconds = Long.parseLong(s);
+        return new Date(unix_seconds * 1000L);
+    }
+
+    public static ElasticsearchSink<ActivityStat> getESSink(String indexName) {
+        List<HttpHost> httpHosts = new ArrayList<>();
+        httpHosts.add(new HttpHost("127.0.0.1", 9200, "http"));
+        httpHosts.add(new HttpHost("10.2.3.1", 9200, "http"));
+
+        // use a ElasticsearchSink.Builder to create an ElasticsearchSink
+        ElasticsearchSink.Builder<ActivityStat> esSinkBuilder = new ElasticsearchSink.Builder<>(
+                httpHosts,
+                new ElasticsearchSinkFunction<ActivityStat>() {
+                    @Override
+                    public void process(ActivityStat activity, RuntimeContext runtimeContext, RequestIndexer requestIndexer) {
+                        requestIndexer.add(createIndexRequest(activity));
+                    }
+
+                    public IndexRequest createIndexRequest(ActivityStat element) {
+                        Map<String, Object> json = new HashMap<>();
+                        json.put("timestamp", convertToDate(element.getTimestamp()));
+                        json.put("eventType", element.getEventType());
+                        json.put("uid", element.getUid());
+                        json.put("ip", element.getIp());
+                        json.put("impressionId", element.getImpressionId());
+                        json.put("numIpByUid", element.getNumIpByUid());
+                        json.put("reactionTime", element.getReactionTime());
+                        json.put("numClicks", element.getNumClicks());
+
+                        return Requests.indexRequest()
+                                .index(indexName)
+                                .type("ActivityStat")
+                                .source(json);
+                    }
+                }
+        );
+        // configuration for the bulk requests; this instructs the sink to emit after every element, otherwise they would be buffered
+        esSinkBuilder.setBulkFlushMaxActions(1);
+        return esSinkBuilder.build();
+    }
 
     public static void main(String[] args) {
 
@@ -100,7 +131,7 @@ public class ActivityConsumer {
                 .window(TumblingEventTimeWindows.of(TIME_WINDOW));
 
         DataStream<Tuple2<String, Double>> uidReactionTimes = uidStream
-            .process(new UidAvgReactionTimeProcess(MIN_REACTION_TIME));
+            .process(new UidAvgReactionTimeProcess());
         DataStream<Alert> uidAlertReactionTime = uidReactionTimes
                 .filter(new FilterFunction<Tuple2<String, Double>>() {
                     @Override
@@ -205,7 +236,8 @@ public class ActivityConsumer {
                     }
                 });
 
-        ctr.print();  // TODO : nothing has been filtered ! Add an ES-sink and do it on Kibana
+//        ctr.print();  // TODO : nothing has been filtered ! Add an ES-sink and do it on Kibana
+        activityStats.addSink(getESSink("activitystats"));
 //        activityStats.print();
 
 //        uidAlertReactionTime
