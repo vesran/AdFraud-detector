@@ -19,7 +19,7 @@ Instruction here : [https://maven.apache.org/install.html](https://maven.apache.
 
 1. Install ElasticSearch and Kibana with docker - [docker](https://www.elastic.co/guide/en/elasticsearch/reference/current/docker.html) / [kibana](https://www.elastic.co/guide/en/kibana/current/docker.html)
 
-2. Launch your containers following the instructions in the previous links (If you specify another port for any reasons, make sure that the ports are the same as the one provided in the flink files)
+2. Launch your ElasticSearch and Kibana containers following the instructions in the previous links (If you specify another port for any reasons, make sure that the ports are the same as the one provided in the flink files)
 
 3. Start Kafka cluster
 

@@ -31,7 +31,7 @@ public class ActivityConsumer {
     public static int MIN_REACTION_TIME = 3;
     public static int MAX_IP_COUNT = 10;
     public static int WINDOW_SIZE = 10;
-    public static Time TIME_WINDOW = Time.minutes(WINDOW_SIZE);
+    public static Time TIME_WINDOW = Time.seconds(WINDOW_SIZE);
 
     public static Date convertToDate(String s) {
         long unix_seconds = Long.parseLong(s);
@@ -216,29 +216,7 @@ public class ActivityConsumer {
                 ;
 
 
-        DataStream<Double> ctr = activityStats
-                .keyBy(a -> 0)
-                .window(TumblingEventTimeWindows.of(TIME_WINDOW))
-                .process(new ProcessWindowFunction<ActivityStat, Double, Integer, TimeWindow>() {
-                    @Override
-                    public void process(Integer integer, Context context, Iterable<ActivityStat> iterable, Collector<Double> collector) throws Exception {
-                        double numClicks = 0.0;
-                        double numDisplays = 0;
-                        for (ActivityStat activity : iterable) {
-                            if (activity.getEventType().equals("click")) {
-                                numClicks++;
-                            } else {
-                                numDisplays++;
-                            }
-                        }
-                        System.out.println(numClicks + " " + numDisplays);
-                        collector.collect(numClicks / numDisplays);
-                    }
-                });
-
-//        ctr.print();  // TODO : nothing has been filtered ! Add an ES-sink and do it on Kibana
-        activityStats.addSink(getESSink("activitystats"));
-//        activityStats.print();
+//        activityStats.addSink(getESSink("activitystats"));
 
 //        uidAlertReactionTime
 //                .addSink(new AlertSink())
@@ -247,10 +225,10 @@ public class ActivityConsumer {
 //        uidAlertClicks
 //                .addSink(new AlertSink())
 //                .name("Uid Number of Click Alert Sink");
-//
-//        ipAlerts
-//                .addSink(new AlertSink())
-//                .name("IP Alert Sink");
+
+        ipAlerts
+                .addSink(new AlertSink())
+                .name("IP Alert Sink");
 
         try {
             env.execute("Flink Streaming Java API Skeleton");
