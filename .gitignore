@@ -2,7 +2,7 @@
 _dev
 __pycache__
 elasticsearch
-kibana/
+docker/kibana/
 logstash
 elk-cec-docker
 *.class
