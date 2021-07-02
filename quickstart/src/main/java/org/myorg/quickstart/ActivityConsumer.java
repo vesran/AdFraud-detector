@@ -5,6 +5,7 @@ import org.apache.flink.api.common.functions.*;
 import org.apache.flink.api.java.tuple.Tuple;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple5;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.WindowedStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
@@ -23,6 +24,7 @@ import org.elasticsearch.client.Requests;
 
 import java.time.Duration;
 import java.util.*;
+
 
 
 public class ActivityConsumer {
@@ -82,6 +84,8 @@ public class ActivityConsumer {
         topics.add("displays");
 
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+
+
         Properties properties = new Properties();
         properties.setProperty("bootstrap.servers", "localhost:9092");
         properties.setProperty("zookeeper.connect", "localhost:2181");
