@@ -24,7 +24,7 @@ public class UidClickCountAggregateFunction implements AggregateFunction<Tuple3<
     @Override
     public Tuple2<String, Integer> getResult(Tuple2<String, Integer> accumulator) {
         String uid = accumulator.f0;
-        uid = uid.substring(1, uid.length()-1);
+        //uid = uid.substring(1, uid.length()-1);
         return new Tuple2<>(uid, accumulator.f1);
     }
 

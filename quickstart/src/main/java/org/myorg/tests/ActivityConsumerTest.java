@@ -2,6 +2,7 @@ package org.myorg.tests;
 
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.api.java.tuple.Tuple5;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -42,26 +43,22 @@ class ActivityConsumerTest {
 
     @Test
     public void testIpAggregate() throws Exception {
-        // instantiate your function
         IpFunctionAggregate aggregator = new IpFunctionAggregate(MAX_IP_COUNT);
 
-        // call the methods that you have implemented
         assertEquals(new Tuple2<String, Integer>("testIP",3), aggregator.add(new Tuple2<String, Integer>("testIP",0), new Tuple2<String, Integer>("",2)));
         assertEquals(new Tuple2<String, Integer>("testIP",3), aggregator.getResult(new Tuple2<String, Integer>("testIP",3)));
     }
 
     @Test
-    public void UidAvgReactionTimeAggregateFunction() throws Exception {
-        // instantiate your function
-        IpFunctionAggregate aggregator = new IpFunctionAggregate(MAX_IP_COUNT);
+    public void testUidClickCountAggregateFunction() throws Exception {
+        UidClickCountAggregateFunction aggregator = new UidClickCountAggregateFunction();
 
-        // call the methods that you have implemented
-        assertEquals(new Tuple2<String, Integer>("testIP",3), aggregator.add(new Tuple2<String, Integer>("testIP",0), new Tuple2<String, Integer>("",2)));
-        assertEquals(new Tuple2<String, Integer>("testIP",3), aggregator.getResult(new Tuple2<String, Integer>("testIP",3)));
+        assertEquals(new Tuple2<String, Integer>("testUid",4), aggregator.add(new Tuple3<String, String, Integer>("testUid","click",-1), new Tuple2<String, Integer>("",3)));
+        assertEquals(new Tuple2<String, Integer>("testUid",6), aggregator.getResult(new Tuple2<String, Integer>("testUid",6)));
     }
 
     @Test
-    public void UidAvgReactionTimeProcess() throws Exception {
+    public void testUidAvgReactionTimeProcess() throws Exception {
         ArrayList<String> testResult = new ArrayList<>();
         List<String> expectedResult = Arrays.asList("(uid1,1.3333333333333333)");
 
@@ -102,7 +99,7 @@ class ActivityConsumerTest {
 
     @Test
     @DisplayName("Calculate timestamp difference")
-    void timestampDifference(){
+    void testTimestampDifference(){
         assertAll(() -> assertEquals(0, UidAvgReactionTimeProcess.computeReactionTime("1624959723","1624959723")),
                 () -> assertEquals(1, UidAvgReactionTimeProcess.computeReactionTime("1624959723","1624959724")),
                 () -> assertEquals(3, UidAvgReactionTimeProcess.computeReactionTime("1624959723","1624959720")));
