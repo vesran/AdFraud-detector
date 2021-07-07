@@ -1,9 +1,4 @@
-A Flink application project using Java and Gradle.
-
-To package your job for submission to Flink, use: 'gradle shadowJar'. Afterwards, you'll find the
-jar to use in the 'build/libs' folder.
-
-To run and test your application with an embedded instance of Flink use: 'gradle run'
+# Basic observabity with Scala 
 
 ## Get your environment running
 
@@ -11,7 +6,7 @@ To run and test your application with an embedded instance of Flink use: 'gradle
 
 2. Launch your containers following the instructions in the previous links (If you specify another port for any reasons, make sure that the ports are the same as the one provided in the flink files)
 
-3. Launch the StreamingJob main method (for Scala) | Launch the ActivityConsumer main method (for Java)
+3. Launch the StreamingJob main method in the scala folder.
 
 ### See some dashboards for analysis
 
@@ -22,7 +17,7 @@ To run and test your application with an embedded instance of Flink use: 'gradle
 6. Go to dashboards (*Click on the toggle on the left side*) to add and visualize your own dashboards 
 7. Select : *Create New panel* and click on *Lens* to start doing some visual analysis
 
-#### Example of obtainable dashboards - 
+#### Example of obtainable dashboard's figures : 
 ---
 
 **Total number of click in proportion of all events**
