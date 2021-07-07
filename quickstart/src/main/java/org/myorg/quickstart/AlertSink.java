@@ -11,7 +11,7 @@ public class AlertSink implements SinkFunction<Alert> {
     public void invoke(Alert value,
                        SinkFunction.Context context){
 
-        String result = null;
+        String result;
         // Outputting result
         if (value.getAlertPattern() == FraudulentPatterns.LOW_REACTION_TIME)
         {
