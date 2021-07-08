@@ -30,7 +30,7 @@ $> cd docker/kafka-zk
 $> docker-compose up -d
 ```
 
-4. Build the project using Maven and launch the ActivityConsumer main method (for Java).
+4. Build the project using Maven and launch the ActivityConsumer main method (for Java). Suspicious entities will be outputed to ```quickstart/alerts.txt``` file.
 
 5. Go to `localhost:5601` to access Kibana. An index named `activitystats` has been created where you can check on
 `Menu > Stack Management > Index Management`. Reload indices if necessary.
