@@ -23,10 +23,10 @@ Instruction here : [https://maven.apache.org/install.html](https://maven.apache.
 
 2. Launch your ElasticSearch and Kibana containers following the instructions in the previous links (If you specify another port for any reasons, make sure that the ports are the same as the one provided in the flink files)
 
-3. Start Kafka cluster
+3. Start Kafka cluster (which contains 2 topics "clicks" and "displays")
 
 ```
-$> cd flink-exercices/docker/kafka-zk
+$> cd docker/kafka-zk
 $> docker-compose up -d
 ```
 
