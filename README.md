@@ -5,7 +5,7 @@ This repository contains a Flink application and an Elasticsearch-Kibana pipelin
 **Dashboard**
 ![alt text](./quickstart/data/dashboard.png)
 
-See demo/demo-dashbord.mp4 to see how it works !
+See ```demo/demo-dashbord.mp4``` to see how it works !
 
 # Get your environment running
 
