@@ -47,8 +47,6 @@ Now you have a Kafka cluster running, let's try to read from some topics.
 We want to read those topics from our machine (not from a docker container).
 Depending on your OS, Kafka is either running on a VM (using docker-machine) or directly in your host.
 In the following steps, I'm assuming docker is running directly on your host.
-If you use a vm, then we need to update few variables.
-TODO....
 
 ### Download Kafka scripts
 Download https://archive.apache.org/dist/kafka/2.0.1/kafka_2.11-2.0.1.tgz
