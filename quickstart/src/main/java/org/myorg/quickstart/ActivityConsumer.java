@@ -23,7 +23,6 @@ import java.time.Duration;
 import java.util.*;
 
 
-
 public class ActivityConsumer {
 
     public static int MAX_CLICKS_PER_WINDOW = 15;
@@ -31,6 +30,8 @@ public class ActivityConsumer {
     public static int MAX_IP_COUNT = 10;
     public static int WINDOW_SIZE = 10;
     public static Time TIME_WINDOW = Time.minutes(WINDOW_SIZE);
+    public static int SEC_LATENESS = 1;
+    public static String ES_INDEX_NAME = "activitystats";
 
     public static Date convertToDate(String s) {
         long unix_seconds = Long.parseLong(s);
@@ -69,30 +70,13 @@ public class ActivityConsumer {
                     }
                 }
         );
-        // configuration for the bulk requests; this instructs the sink to emit after every element, otherwise they would be buffered
+        // configuration for the bulk requests; this instructs the sink to emit after every element,
+        // otherwise they would be buffered
         esSinkBuilder.setBulkFlushMaxActions(1);
         return esSinkBuilder.build();
     }
 
-    public static void main(String[] args) {
-
-        List<String> topics = new ArrayList<>();
-        topics.add("clicks");
-        topics.add("displays");
-
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-
-
-        Properties properties = new Properties();
-        properties.setProperty("bootstrap.servers", "localhost:9092");
-        properties.setProperty("zookeeper.connect", "localhost:2181");
-        properties.setProperty("group.id", "test");
-        FlinkKafkaConsumer<Activity> kafkaSource = new FlinkKafkaConsumer<>(topics, new ActivityDeserializationSchema(), properties);
-        kafkaSource.assignTimestampsAndWatermarks(
-                WatermarkStrategy
-                        .forBoundedOutOfOrderness(Duration.ofSeconds(1)));
-        DataStream<Activity> stream = env.addSource(kafkaSource);
-
+    public static DataStream<Tuple2<String, Integer>> countEventsByIp(DataStream<Activity> stream) {
         DataStream<Tuple2<String, Integer>> ipCount = stream
                 .map(new MapFunction<Activity,Tuple2<String, Integer>>() {
                     @Override
@@ -103,8 +87,10 @@ public class ActivityConsumer {
                 .keyBy(0)
                 .window(TumblingEventTimeWindows.of(TIME_WINDOW))
                 .aggregate(new IpFunctionAggregate(MAX_IP_COUNT));
+        return ipCount;
+    }
 
-        // Output ip alert
+    public static DataStream<Alert> alertByIpCount(DataStream<Tuple2<String, Integer>> ipCount) {
         DataStream<Alert> ipAlerts = ipCount
                 .filter(new FilterFunction<Tuple2<String, Integer>>() {
                     @Override
@@ -120,19 +106,10 @@ public class ActivityConsumer {
                         return alert;
                     }
                 });
+        return ipAlerts;
+    }
 
-        WindowedStream<Tuple5<String, String, String, String, String>, Tuple, TimeWindow> uidStream = stream
-                .map(new MapFunction<Activity, Tuple5<String, String, String, String, String>>() {
-                    @Override
-                    public Tuple5<String, String, String, String, String> map(Activity activity) throws Exception {
-                        return new Tuple5<>(activity.getUid(), activity.getTimestamp(), activity.getEventType(), activity.getImpressionId(), activity.getIp());
-                    }
-                })
-                .keyBy(0)
-                .window(TumblingEventTimeWindows.of(TIME_WINDOW));
-
-        DataStream<Tuple2<String, Double>> uidReactionTimes = uidStream
-            .process(new UidAvgReactionTimeProcess());
+    public static DataStream<Alert> alertByAvgTimeReactionPerUid(DataStream<Tuple2<String, Double>> uidReactionTimes) {
         DataStream<Alert> uidAlertReactionTime = uidReactionTimes
                 .filter(new FilterFunction<Tuple2<String, Double>>() {
                     @Override
@@ -149,10 +126,10 @@ public class ActivityConsumer {
                         return alert;
                     }
                 });
+        return uidAlertReactionTime;
+    }
 
-
-        DataStream<Tuple2<String, Integer>> uidClickCounts = uidStream
-                .process(new UidClickCountProcess());
+    public static DataStream<Alert> alertByNumClicksPerUid(DataStream<Tuple2<String, Integer>> uidClickCounts) {
         DataStream<Alert> uidAlertClicks = uidClickCounts
                 .filter(new FilterFunction<Tuple2<String, Integer>>() {
                     @Override
@@ -169,9 +146,14 @@ public class ActivityConsumer {
                         return alert;
                     }
                 });
+        return uidAlertClicks;
+    }
 
-        // Join activity stream with ipCount : having the number of event associated to an ip in an activity
-        DataStream<ActivityStat> activityStats = stream
+    public static DataStream<ActivityStat> joinActivitiesAndStats(DataStream<Activity> origin,
+                                                                  DataStream<Tuple2<String, Integer>> ipCount,
+                                                                  DataStream<Tuple2<String, Double>> uidReactionTimes,
+                                                                  DataStream<Tuple2<String, Integer>> uidClickCounts) {
+        DataStream<ActivityStat> activityStats = origin
                 .join(ipCount)
                 .where(Activity::getIp)
                 .equalTo(tuple -> tuple.f0)
@@ -213,12 +195,63 @@ public class ActivityConsumer {
                         a.setNumClicks(tuple.f1);
                         return a;
                     }
+                });
+        return activityStats;
+    }
+
+    public static void main(String[] args) {
+        // Gather list of topics to catch
+        List<String> topics = new ArrayList<>();
+        topics.add("clicks");
+        topics.add("displays");
+
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+
+        // Get kafka source
+        Properties properties = new Properties();
+        properties.setProperty("bootstrap.servers", "localhost:9092");
+        properties.setProperty("zookeeper.connect", "localhost:2181");
+        properties.setProperty("group.id", "test");
+        FlinkKafkaConsumer<Activity> kafkaSource = new FlinkKafkaConsumer<>(topics, new ActivityDeserializationSchema(), properties);
+        kafkaSource.assignTimestampsAndWatermarks(
+                WatermarkStrategy
+                        .forBoundedOutOfOrderness(Duration.ofSeconds(SEC_LATENESS)));
+        DataStream<Activity> stream = env.addSource(kafkaSource);
+
+        // Count IP addresses
+        DataStream<Tuple2<String, Integer>> ipCount = countEventsByIp(stream);
+
+        // Prepare output ip alert
+        DataStream<Alert> ipAlerts = alertByIpCount(ipCount);
+
+        // Key by UID because the next two patterns (time reaction and click counts) to filter
+        // need data to be grouped by UID
+        WindowedStream<Tuple5<String, String, String, String, String>, Tuple, TimeWindow> uidStream = stream
+                .map(new MapFunction<Activity, Tuple5<String, String, String, String, String>>() {
+                    @Override
+                    public Tuple5<String, String, String, String, String> map(Activity activity) throws Exception {
+                        return new Tuple5<>(activity.getUid(), activity.getTimestamp(), activity.getEventType(), activity.getImpressionId(), activity.getIp());
+                    }
                 })
-                ;
+                .keyBy(0)
+                .window(TumblingEventTimeWindows.of(TIME_WINDOW));
 
+        // Handle time reaction
+        DataStream<Tuple2<String, Double>> uidReactionTimes = uidStream.process(new UidAvgReactionTimeProcess());
+        DataStream<Alert> uidAlertReactionTime = alertByAvgTimeReactionPerUid(uidReactionTimes);
 
-        activityStats.addSink(getESSink("activitystats"));
+        // Handle click counts
+        DataStream<Tuple2<String, Integer>> uidClickCounts = uidStream.process(new UidClickCountProcess());
+        DataStream<Alert> uidAlertClicks = alertByNumClicksPerUid(uidClickCounts);
 
+        // Join activity stream with ipCount : having the number of event associated to an ip in an activity
+        // to prepare the sink into ES
+        DataStream<ActivityStat> activityStats = joinActivitiesAndStats(stream, ipCount, uidReactionTimes, uidClickCounts);
+
+        // Sink enriched stream to ES
+        activityStats.addSink(getESSink(ES_INDEX_NAME));
+
+        // Output suspicious entities in a file
         uidAlertReactionTime
                 .addSink(new AlertSink())
                 .name("Uid Time Reaction Alert Sink");
